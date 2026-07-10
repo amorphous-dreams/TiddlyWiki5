@@ -9,19 +9,6 @@ Widget base class
 
 "use strict";
 
-// Opt-in flag for the resilient render boundary in renderChildren (default off → throws propagate,
-// preserving fail-loud server/CI render). An interactive edition sets this tiddler to "yes".
-var RESILIENT_RENDER_CONFIG_TITLE = "$:/config/ResilientRender";
-
-function getResilientRenderEnabled(wiki) {
-	var changeCount = wiki.getChangeCount(RESILIENT_RENDER_CONFIG_TITLE);
-	if(wiki.resilientRenderConfigChangeCount !== changeCount) {
-		wiki.resilientRenderConfigChangeCount = changeCount;
-		wiki.resilientRenderEnabled = wiki.getTiddlerText(RESILIENT_RENDER_CONFIG_TITLE,"no") === "yes";
-	}
-	return wiki.resilientRenderEnabled === true;
-}
-
 /*
 Create a widget object for a parse tree node
 	parseTreeNode: reference to the parse tree node to be rendered
@@ -697,40 +684,28 @@ Widget.prototype.previousSibling = function() {
 Render the children of this widget into the DOM.
 */
 Widget.prototype.renderChildren = function(parent,nextSibling) {
-	var children = this.children,
-		resilient = getResilientRenderEnabled(this.wiki);
-	if(!resilient) {
-		for(var i = 0; i < children.length; i++) {
-			children[i].render(parent,nextSibling);
-		}
-	} else {
-		for(var t = 0; t < children.length; t++) {
-			try {
-				children[t].render(parent,nextSibling);
-			} catch(error) {
-				this.containChildError(t,error,"render",parent,nextSibling,resilient);
-			}
+	var children = this.children;
+	for(var t = 0; t < children.length; t++) {
+		try {
+			children[t].render(parent,nextSibling);
+		} catch(error) {
+			this.containChildError(t,error,"render",parent,nextSibling);
 		}
 	}
 };
 
 /*
-Resilient render boundary (opt-in via $:/config/ResilientRender, default off): after render/refresh
-throws, the error path rethrows TranscludeRecursionError and non-enabled cases, otherwise swaps in a
-graded $error span. The fail-loud default preserves server/CI/static rendering and bug surfacing; on
-containment, destroying the failed child clears partial DOM/listeners and keeps this.children,
-refresh, and sibling DOM positioning consistent.
+Resilient render boundary: after render/refresh throws, the error path rethrows TranscludeRecursionError
+and otherwise swaps in a graded $error span. Destroying the failed child clears partial DOM/listeners and
+keeps this.children, refresh, and sibling DOM positioning consistent.
 	index: position of the failing child in this.children
 	error: the thrown error
 	phase: "render" or "refresh" (for the message)
 	parentDomNode: the DOM node to render the error widget into
 	nextSibling: the DOM node to insert the error widget before (or null)
 */
-Widget.prototype.containChildError = function(index,error,phase,parentDomNode,nextSibling,resilient) {
+Widget.prototype.containChildError = function(index,error,phase,parentDomNode,nextSibling) {
 	if(error instanceof $tw.utils.TranscludeRecursionError) {
-		throw error;
-	}
-	if(!resilient) {
 		throw error;
 	}
 	var message = "Widget " + phase + " error: " + ((error && error.message) ? error.message : String(error));
@@ -839,23 +814,15 @@ Refresh all the children of a widget
 */
 Widget.prototype.refreshChildren = function(changedTiddlers) {
 	var children = this.children,
-		resilient = getResilientRenderEnabled(this.wiki),
 		refreshed = false;
-	if(!resilient) {
-		for(var i = 0; i < children.length; i++) {
-			refreshed = children[i].refresh(changedTiddlers) || refreshed;
-		}
-	} else {
-		for(var t = 0; t < children.length; t++) {
-			try {
-				refreshed = children[t].refresh(changedTiddlers) || refreshed;
-			} catch(error) {
-				// Capture the DOM anchor before the failing child is destroyed (refresh works in place,
-				// so unlike render there is no nextSibling argument to fall back on).
-				var nextSibling = children[t].findNextSiblingDomNode();
-				this.containChildError(t,error,"refresh",this.parentDomNode,nextSibling,resilient);
-				refreshed = true;
-			}
+	for(var t = 0; t < children.length; t++) {
+		try {
+			refreshed = children[t].refresh(changedTiddlers) || refreshed;
+		} catch(error) {
+			// Capture the DOM anchor before the failed child gets destroyed.
+			var nextSibling = children[t].findNextSiblingDomNode();
+			this.containChildError(t,error,"refresh",this.parentDomNode,nextSibling);
+			refreshed = true;
 		}
 	}
 	return refreshed;
