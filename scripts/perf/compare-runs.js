@@ -1,301 +1,167 @@
-#!/usr/bin/env node
+/*
+Honest paired A/B comparison for TiddlyWiki perftest runs.
+
+	node scripts/perf/compare-runs.js <before-dir> <after-dir> [--json out.json]
+
+Each directory holds run-*.json files produced by `--perf`, ACQUIRED INTERLEAVED
+(before, after, before, after, ...) in one session. The tool pairs before[i] with
+after[i] and works from the WITHIN-PAIR delta, so the between-session drift that
+dwarfs most real changes cancels out.
+
+For every benchmark it reports the drift-cancelled median delta with a 95%
+confidence interval, and a verdict that refuses to claim a difference the data
+cannot support: a CI that straddles zero reads INCONCLUSIVE, not "no change" and
+never a number dressed up as a win.
+
+Why not compare one whole run against another? Because between-session drift
+(machine load, thermal state) routinely runs ±10-40% — larger than the effect you
+are hunting. Snapshot comparison measures the weather, not the code.
+*/
 "use strict";
 
 const fs = require("fs");
 const path = require("path");
 
 function usage() {
-  console.log("Usage: node scripts/perf/compare-runs.js <results1.json> <results2.json> [resultsN.json] [--json <output.json>]");
+	console.log("Usage: node scripts/perf/compare-runs.js <before-dir> <after-dir> [--json out.json]");
+	console.log("  Directories hold run-*.json from --perf, acquired interleaved (before, after, before, after, ...).");
 }
 
-function parseArgs(argv) {
-  const files = [];
-  let jsonOut = null;
-  for (let i = 2; i < argv.length; i++) {
-    const arg = argv[i];
-    if (arg === "--json") {
-      jsonOut = argv[i + 1];
-      i += 1;
-      continue;
-    }
-    files.push(arg);
-  }
-  return { files, jsonOut };
+function loadRuns(dir) {
+	return fs.readdirSync(dir)
+		.filter((f) => /^run-\d+\.json$/.test(f))
+		.sort((a, b) => parseInt(a.match(/\d+/)[0], 10) - parseInt(b.match(/\d+/)[0], 10))
+		.map((f) => {
+			const json = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+			const byKey = new Map();
+			for (const row of json.benchmarks || []) {
+				if (row.rowType === "measurement" && !row.error && typeof row.median === "number") {
+					byKey.set(measurementKey(row), row.median);
+				}
+			}
+			return { file: f, timestamp: json.environment && json.environment.timestamp, byKey };
+		});
 }
 
-function readResult(filePath) {
-  const raw = fs.readFileSync(filePath, "utf8");
-  const parsed = JSON.parse(raw);
-  return {
-    filePath,
-    runName: path.basename(filePath),
-    timestamp: parsed.environment && parsed.environment.timestamp,
-    status: parsed.status,
-    benchmarks: Array.isArray(parsed.benchmarks) ? parsed.benchmarks : []
-  };
+function measurementKey(row) {
+	return [row.name || "", row.label || "", row.phase || "", row.mode || ""].join(" | ");
 }
 
-function isNum(value) {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function medianOf(values) {
-  if (values.length === 0) return null;
-  const sorted = values.slice().sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 0) {
-    return (sorted[mid - 1] + sorted[mid]) / 2;
-  }
-  return sorted[mid];
+function median(values) {
+	const a = values.slice().sort((x, y) => x - y);
+	const m = Math.floor(a.length / 2);
+	return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
 }
 
 function mean(values) {
-  if (values.length === 0) return null;
-  return values.reduce((a, b) => a + b, 0) / values.length;
+	return values.reduce((s, x) => s + x, 0) / values.length;
 }
 
-function stddev(values) {
-  if (values.length === 0) return null;
-  const m = mean(values);
-  const variance = values.reduce((acc, value) => acc + Math.pow(value - m, 2), 0) / values.length;
-  return Math.sqrt(variance);
+function stddev(values, mu) {
+	if (values.length < 2) return 0;
+	return Math.sqrt(values.reduce((s, x) => s + (x - mu) * (x - mu), 0) / (values.length - 1));
 }
 
-function pctDelta(a, b) {
-  if (!isNum(a) || !isNum(b) || a === 0) return null;
-  return ((b - a) / a) * 100;
+// Warn when the two sets were acquired as snapshots (all before, then all after)
+// rather than interleaved: snapshot pairs cannot cancel drift.
+function looksInterleaved(before, after) {
+	const bt = before.map((r) => r.timestamp).filter(Boolean).map((t) => Date.parse(t));
+	const at = after.map((r) => r.timestamp).filter(Boolean).map((t) => Date.parse(t));
+	if (bt.length === 0 || at.length === 0) return null;
+	// Interleaved if the two time ranges overlap; snapshot if one set fully precedes the other.
+	const beforeMax = Math.max(...bt), afterMin = Math.min(...at);
+	const afterMax = Math.max(...at), beforeMin = Math.min(...bt);
+	return !(beforeMax < afterMin || afterMax < beforeMin);
 }
 
-function formatNumber(value, digits = 3) {
-  return isNum(value) ? value.toFixed(digits) : "";
+function compare(beforeDir, afterDir) {
+	const before = loadRuns(beforeDir);
+	const after = loadRuns(afterDir);
+	const pairs = Math.min(before.length, after.length);
+	if (pairs < 2) {
+		throw new Error(`Need at least 2 paired runs in each directory; found ${before.length} before / ${after.length} after.`);
+	}
+	const keys = [...before[0].byKey.keys()].filter(
+		(k) => before.every((r) => r.byKey.has(k)) && after.every((r) => r.byKey.has(k))
+	).sort();
+	const results = [];
+	for (const key of keys) {
+		const deltas = [];
+		for (let i = 0; i < pairs; i++) {
+			const b = before[i].byKey.get(key), a = after[i].byKey.get(key);
+			if (b > 0) deltas.push((a - b) / b * 100);
+		}
+		if (deltas.length < 2) continue;
+		const dMean = mean(deltas);
+		const dMedian = median(deltas);
+		const se = stddev(deltas, dMean) / Math.sqrt(deltas.length);
+		const ci95 = 1.96 * se; // half-width of the 95% CI on the mean delta
+		const lo = dMean - ci95, hi = dMean + ci95;
+		let verdict;
+		if (lo > 0) verdict = "regression";
+		else if (hi < 0) verdict = "improvement";
+		else verdict = "inconclusive"; // the CI straddles zero — the rig cannot resolve this
+		results.push({
+			key, pairs: deltas.length,
+			beforeMedian: median(before.map((r) => r.byKey.get(key))),
+			afterMedian: median(after.map((r) => r.byKey.get(key))),
+			deltaMedianPct: dMedian, deltaMeanPct: dMean,
+			ci95Pct: ci95, ciLoPct: lo, ciHiPct: hi,
+			verdict
+		});
+	}
+	return { pairs, interleaved: looksInterleaved(before, after), keys: results };
 }
 
-function formatPct(value, digits = 2) {
-  return isNum(value) ? `${value.toFixed(digits)}%` : "";
+function fmtPct(x) {
+	return (x >= 0 ? "+" : "") + x.toFixed(1) + "%";
 }
 
-function keyFor(row) {
-  return [
-    row.name || "",
-    row.label || "",
-    row.mode || "",
-    row.phase || "",
-    row.taxonomy || ""
-  ].join("|");
-}
-
-function collectMeasurementRows(results) {
-  const runs = [];
-  const allKeys = new Set();
-
-  for (const result of results) {
-    const byKey = new Map();
-    for (const row of result.benchmarks) {
-      if (row.rowType !== "measurement") continue;
-      if (row.error) continue;
-      const key = keyFor(row);
-      byKey.set(key, row);
-      allKeys.add(key);
-    }
-    runs.push({
-      runName: result.runName,
-      timestamp: result.timestamp,
-      status: result.status,
-      byKey
-    });
-  }
-
-  return { runs, keys: Array.from(allKeys).sort() };
-}
-
-function aggregateKeyStats(collected) {
-  const stats = [];
-
-  for (const key of collected.keys) {
-    const [name, label, mode, phase, taxonomy] = key.split("|");
-    const medians = [];
-    const p95s = [];
-    const p99s = [];
-    const sds = [];
-    let scenarioChangeRelation = null;
-    let scenarioDescription = null;
-
-    for (const run of collected.runs) {
-      const row = run.byKey.get(key);
-      medians.push(row && isNum(row.median) ? row.median : null);
-      p95s.push(row && isNum(row.p95) ? row.p95 : null);
-      p99s.push(row && isNum(row.p99) ? row.p99 : null);
-      sds.push(row && isNum(row.standardDeviation) ? row.standardDeviation : null);
-      if (row && !scenarioChangeRelation && row.scenarioChangeRelation) {
-        scenarioChangeRelation = row.scenarioChangeRelation;
-      }
-      if (row && !scenarioDescription && row.scenarioDescription) {
-        scenarioDescription = row.scenarioDescription;
-      }
-    }
-
-    const medNum = medians.filter(isNum);
-    const p95Num = p95s.filter(isNum);
-    const p99Num = p99s.filter(isNum);
-    const sdNum = sds.filter(isNum);
-
-    const medianMean = mean(medNum);
-    const medianMin = medNum.length ? Math.min(...medNum) : null;
-    const medianMax = medNum.length ? Math.max(...medNum) : null;
-    const medianSpreadPct = pctDelta(medianMin, medianMax);
-    const medianCvPct = medianMean && isNum(stddev(medNum)) ? (stddev(medNum) / medianMean) * 100 : null;
-
-    const p95Mean = mean(p95Num);
-    const p95Min = p95Num.length ? Math.min(...p95Num) : null;
-    const p95Max = p95Num.length ? Math.max(...p95Num) : null;
-    const p95SpreadPct = pctDelta(p95Min, p95Max);
-    const p95CvPct = p95Mean && isNum(stddev(p95Num)) ? (stddev(p95Num) / p95Mean) * 100 : null;
-
-    const p99Mean = mean(p99Num);
-    const p99Min = p99Num.length ? Math.min(...p99Num) : null;
-    const p99Max = p99Num.length ? Math.max(...p99Num) : null;
-    const p99SpreadPct = pctDelta(p99Min, p99Max);
-    const p99CvPct = p99Mean && isNum(stddev(p99Num)) ? (stddev(p99Num) / p99Mean) * 100 : null;
-
-    const firstMedian = medians.find(isNum);
-    const lastMedian = [...medians].reverse().find(isNum);
-
-    stats.push({
-      key,
-      name,
-      label,
-      mode,
-      phase,
-      taxonomy,
-      medians,
-      p95s,
-      p99s,
-      sds,
-      scenarioChangeRelation,
-      scenarioDescription,
-      median: {
-        mean: medianMean,
-        min: medianMin,
-        max: medianMax,
-        spreadPct: medianSpreadPct,
-        cvPct: medianCvPct,
-        firstToLastPct: pctDelta(firstMedian, lastMedian)
-      },
-      p95: {
-        mean: p95Mean,
-        min: p95Min,
-        max: p95Max,
-        spreadPct: p95SpreadPct,
-        cvPct: p95CvPct
-      },
-      p99: {
-        mean: p99Mean,
-        min: p99Min,
-        max: p99Max,
-        spreadPct: p99SpreadPct,
-        cvPct: p99CvPct
-      }
-    });
-  }
-
-  return stats;
-}
-
-function printSummary(collected, keyStats) {
-  console.log("=== Run Set ===");
-  for (const run of collected.runs) {
-    console.log(`${run.runName}\t${run.status}\t${run.timestamp || ""}`);
-  }
-  console.log("");
-
-  console.log("=== Most Unstable By p99 Spread ===");
-  const byP99 = keyStats
-    .filter((row) => isNum(row.p99.spreadPct))
-    .sort((a, b) => b.p99.spreadPct - a.p99.spreadPct)
-    .slice(0, 10);
-
-  for (const row of byP99) {
-    console.log([
-      row.name,
-      row.label,
-      row.mode,
-      row.phase,
-      row.scenarioChangeRelation || "",
-      formatPct(row.p99.spreadPct),
-      formatPct(row.p99.cvPct),
-      formatNumber(row.p99.min),
-      formatNumber(row.p99.max)
-    ].join("\t"));
-  }
-  console.log("");
-
-  console.log("=== Most Unstable By p95 Spread ===");
-  const byP95 = keyStats
-    .filter((row) => isNum(row.p95.spreadPct))
-    .sort((a, b) => b.p95.spreadPct - a.p95.spreadPct)
-    .slice(0, 10);
-
-  for (const row of byP95) {
-    console.log([
-      row.name,
-      row.label,
-      row.mode,
-      row.phase,
-      formatPct(row.p95.spreadPct),
-      formatPct(row.p95.cvPct),
-      formatNumber(row.p95.min),
-      formatNumber(row.p95.max)
-    ].join("\t"));
-  }
-  console.log("");
-
-  console.log("=== Most Unstable By Median Spread ===");
-  const byMedian = keyStats
-    .filter((row) => isNum(row.median.spreadPct))
-    .sort((a, b) => b.median.spreadPct - a.median.spreadPct)
-    .slice(0, 10);
-
-  for (const row of byMedian) {
-    console.log([
-      row.name,
-      row.label,
-      row.mode,
-      row.phase,
-      row.scenarioChangeRelation || "",
-      formatPct(row.median.spreadPct),
-      formatPct(row.median.cvPct),
-      formatPct(row.median.firstToLastPct),
-      formatNumber(row.median.min),
-      formatNumber(row.median.max)
-    ].join("\t"));
-  }
-  console.log("");
+function print(report) {
+	console.log("=== Paired A/B (before -> after), drift-cancelled ===");
+	console.log(`pairs=${report.pairs}  keys=${report.keys.length}`);
+	if (report.interleaved === false) {
+		console.log("  ⚠ WARNING: the two run sets do NOT overlap in time — they look like SNAPSHOTS, not interleaved.");
+		console.log("    Between-session drift is uncancelled here; treat every delta below as unreliable. Re-acquire interleaved.");
+	} else if (report.interleaved === null) {
+		console.log("  (could not verify interleaving from timestamps)");
+	}
+	// The rig's own resolution: the median CI half-width across keys — the smallest effect it can call.
+	const floor = report.keys.length ? median(report.keys.map((k) => k.ci95Pct)) : null;
+	if (floor !== null) {
+		console.log(`  Resolution floor (median 95% CI half-width): ±${floor.toFixed(1)}%. Deltas smaller than this are inconclusive by construction.`);
+	}
+	const counts = { improvement: 0, regression: 0, inconclusive: 0 };
+	report.keys.forEach((k) => { counts[k.verdict]++; });
+	console.log(`  Verdicts: ${counts.improvement} improvement, ${counts.regression} regression, ${counts.inconclusive} inconclusive`);
+	console.log("");
+	console.log("KEY\tbefore_ms\tafter_ms\tΔmedian\tΔmean\t95% CI\tverdict");
+	report.keys
+		.slice()
+		.sort((a, b) => Math.abs(b.deltaMeanPct) - Math.abs(a.deltaMeanPct))
+		.forEach((k) => {
+			const tag = k.verdict === "inconclusive" ? "— inconclusive" : k.verdict.toUpperCase();
+			console.log(
+				`${k.key}\t${k.beforeMedian.toFixed(3)}\t${k.afterMedian.toFixed(3)}\t` +
+				`${fmtPct(k.deltaMedianPct)}\t${fmtPct(k.deltaMeanPct)}\t[${fmtPct(k.ciLoPct)}, ${fmtPct(k.ciHiPct)}]\t${tag}`
+			);
+		});
 }
 
 function main() {
-  const { files, jsonOut } = parseArgs(process.argv);
-  if (files.length < 2) {
-    usage();
-    process.exit(1);
-  }
-
-  const results = files.map(readResult);
-  const collected = collectMeasurementRows(results);
-  const keyStats = aggregateKeyStats(collected);
-  printSummary(collected, keyStats);
-
-  if (jsonOut) {
-    const payload = {
-      generatedAt: new Date().toISOString(),
-      runs: collected.runs.map((run) => ({
-        runName: run.runName,
-        status: run.status,
-        timestamp: run.timestamp
-      })),
-      keyStats
-    };
-    fs.writeFileSync(jsonOut, JSON.stringify(payload, null, 2), "utf8");
-  }
+	const args = process.argv.slice(2);
+	let jsonOut = null;
+	const positional = [];
+	for (let i = 0; i < args.length; i++) {
+		if (args[i] === "--json") { jsonOut = args[++i]; }
+		else { positional.push(args[i]); }
+	}
+	if (positional.length < 2) { usage(); process.exit(1); }
+	const report = compare(positional[0], positional[1]);
+	print(report);
+	if (jsonOut) {
+		fs.writeFileSync(jsonOut, JSON.stringify(report, null, 2), "utf8");
+	}
 }
 
 main();

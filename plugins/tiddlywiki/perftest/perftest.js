@@ -194,25 +194,42 @@ function standardDeviation(values,mean) {
 	return Math.sqrt(total / values.length);
 }
 
+// A row whose own uncertainty is larger than this cannot honestly support a
+// claim of difference below that size; it reports as NOISY so no reader mistakes
+// its percentiles for signal.
+var RESOLVABLE_EFFECT_THRESHOLD_PCT = 5;
+
 function makeSummary(values) {
 	var sorted = values.slice(0).sort(function(a,b) {return a - b;}),
 		total = 0;
 	for(var i = 0; i < sorted.length; i++) {
 		total += sorted[i];
 	}
-	var mean = sorted.length ? total / sorted.length : null;
+	var n = sorted.length,
+		mean = n ? total / n : null,
+		median = percentile(sorted,0.5),
+		sd = mean === null ? null : standardDeviation(values,mean),
+		// Spread relative to the mean
+		cvPct = (mean && sd !== null && mean > 0) ? (sd / mean) * 100 : null,
+		// Relative standard error of the median (~1.2533*sd/sqrt(n)): the smallest
+		// effect a measurement of this size and spread can resolve — its own noise floor
+		resolvableEffectPct = (median && sd !== null && n > 0 && median > 0) ? (1.2533 * sd / Math.sqrt(n)) / median * 100 : null,
+		trust = resolvableEffectPct === null ? "unknown" : (resolvableEffectPct <= RESOLVABLE_EFFECT_THRESHOLD_PCT ? "stable" : "noisy");
 	return {
 		samples: values,
-		sampleCount: values.length,
-		median: percentile(sorted,0.5),
+		sampleCount: n,
+		median: median,
 		p75: percentile(sorted,0.75),
 		p90: percentile(sorted,0.9),
 		p95: percentile(sorted,0.95),
 		p99: percentile(sorted,0.99),
-		min: sorted.length ? sorted[0] : null,
-		max: sorted.length ? sorted[sorted.length - 1] : null,
+		min: n ? sorted[0] : null,
+		max: n ? sorted[sorted.length - 1] : null,
 		mean: mean,
-		standardDeviation: mean === null ? null : standardDeviation(values,mean)
+		standardDeviation: sd,
+		cvPct: cvPct,
+		resolvableEffectPct: resolvableEffectPct,
+		trust: trust
 	};
 }
 
@@ -283,7 +300,7 @@ function makePhaseRows(rows) {
 
 function makeErrorResults(error,options) {
 	return {
-		schemaVersion: 1,
+		schemaVersion: 2,
 		status: "failed",
 		environment: makeEnvironment(options || {}),
 		benchmarks: [],
@@ -295,7 +312,7 @@ function makeEnvironment(options) {
 	var defaultWarmup = parseCount(options.defaultWarmup,DEFAULT_WARMUP),
 		defaultIterations = parseCount(options.defaultIterations,DEFAULT_ITERATIONS);
 	var environment = {
-		schemaVersion: 1,
+		schemaVersion: 2,
 		defaultWarmup: defaultWarmup,
 		defaultIterations: defaultIterations,
 		runtime: options.runtime,
@@ -366,7 +383,7 @@ function run(options) {
 			skipMeasurementDuringWarmup: skipMeasurementDuringWarmup
 		}),
 		results = {
-			schemaVersion: 1,
+			schemaVersion: 2,
 			status: "passed",
 			environment: makeEnvironment({
 				runtime: runtime,
@@ -448,10 +465,11 @@ function run(options) {
 }
 
 function reportToConsole(results) {
+	var noisy = 0;
 	console.log("Performance tests: " + results.status);
-	console.log("  Runtime: " + results.environment.runtime + " · TiddlyWiki " + results.environment.twVersion);
-	console.log("  Warmup runs finish before measured runs begin. Measured default: " + results.environment.defaultIterations + " iterations after " + results.environment.defaultWarmup + " warmup runs.");
-	console.log("  Reminder: median is the middle run; p75/p90 mark where 75%/90% of samples landed; standard deviation shows spread.");
+	console.log("  Runtime: " + results.environment.runtime + " · TiddlyWiki " + results.environment.twVersion + " · " + results.environment.defaultIterations + " iterations after " + results.environment.defaultWarmup + " warmup runs");
+	console.log("  Honest reading: each row shows its median, spread (CV), and floor — the smallest change it can resolve. A row marked NOISY cannot support any claim below its floor: raise iterations or ignore differences that small.");
+	console.log("  To compare two versions, never read one whole run against another — between-session drift dwarfs most real changes. Interleave the versions in one session and use compare-runs (paired).");
 	$tw.utils.each(results.benchmarks,function(benchmark) {
 		if(benchmark.error) {
 			console.log("  " + benchmark.name + ": " + benchmark.error);
@@ -461,10 +479,18 @@ function reportToConsole(results) {
 				phase = benchmark.phase ? " phase:" + benchmark.phase : "",
 				label = benchmark.rowType === "phase" ? "phase aggregate" : benchmark.label,
 				petName = benchmark.petName ? " - " + benchmark.petName : "",
-				scenarioDescription = benchmark.rowType === "measurement" && benchmark.scenarioDescription ? " · scenario: " + benchmark.scenarioDescription : "";
-			console.log("  " + benchmark.name + " / " + label + mode + taxonomy + phase + petName + ": median " + benchmark.median.toFixed(3) + "ms, p75 " + benchmark.p75.toFixed(3) + "ms, p90 " + benchmark.p90.toFixed(3) + "ms, p95 " + benchmark.p95.toFixed(3) + "ms, p99 " + benchmark.p99.toFixed(3) + "ms, sd " + benchmark.standardDeviation.toFixed(3) + "ms, n=" + benchmark.sampleCount + scenarioDescription);
+				cv = benchmark.cvPct !== null && benchmark.cvPct !== undefined ? ", CV " + benchmark.cvPct.toFixed(0) + "%" : "",
+				floor = benchmark.resolvableEffectPct !== null && benchmark.resolvableEffectPct !== undefined ? ", floor ±" + benchmark.resolvableEffectPct.toFixed(1) + "%" : "",
+				flag = benchmark.trust === "noisy" ? "  ⚠ NOISY" : "";
+			if(benchmark.trust === "noisy") {
+				noisy++;
+			}
+			console.log("  " + benchmark.name + " / " + label + mode + taxonomy + phase + petName + ": median " + benchmark.median.toFixed(3) + "ms (n=" + benchmark.sampleCount + cv + floor + ")" + flag);
 		}
 	});
+	if(noisy > 0) {
+		console.log("  " + noisy + " row(s) marked NOISY: their spread swamps small effects. Any comparison on those rows needs more iterations before a difference is believable.");
+	}
 }
 
 function reportToDom(results) {
