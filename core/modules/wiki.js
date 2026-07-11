@@ -1079,6 +1079,9 @@ exports.parseText = function(type,text,options) {
 	}
 };
 
+// The closed diagnostic-severity set, matching the WikiParser normaliser; a value outside it coerces to "error"
+var DIAGNOSTIC_SEVERITIES = {error: true, warning: true, info: true, hint: true};
+
 function makeParseDiagnostic(diagnostic,type,text) {
 	diagnostic = diagnostic || {};
 	var from = typeof diagnostic.from === "number" && isFinite(diagnostic.from) ? diagnostic.from : 0,
@@ -1088,7 +1091,7 @@ function makeParseDiagnostic(diagnostic,type,text) {
 	return {
 		from: from,
 		to: to,
-		severity: diagnostic.severity || "error",
+		severity: DIAGNOSTIC_SEVERITIES[diagnostic.severity] ? diagnostic.severity : "error",
 		source: diagnostic.source || type,
 		code: diagnostic.code || "parse-error",
 		message: diagnostic.message || "Unable to parse source"

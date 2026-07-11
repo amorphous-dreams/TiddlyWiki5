@@ -227,6 +227,15 @@ describe("WikiParser block-level recovery", function() {
 		}).toThrow();
 	});
 
+	it("coerces an out-of-set severity to error", function() {
+		var result = withThrowingBlockRule("heading",function() {
+			return new $tw.utils.RecoverableParseError({severity: "bogus", message: "boom"});
+		},function(wiki) {
+			return wiki.parseText("text/vnd.tiddlywiki","! Heading");
+		});
+		expect(result.diagnostics[0].severity).toBe("error");
+	});
+
 	it("normalizes and clamps a block diagnostic range to the source", function() {
 		var result = withThrowingBlockRule("heading",function() {
 			return new $tw.utils.RecoverableParseError({from: -3, to: 99999, severity: "warning", message: "boom"});

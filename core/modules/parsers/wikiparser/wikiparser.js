@@ -22,6 +22,9 @@ Attributes are stored as hashmaps of the following objects:
 
 "use strict";
 
+// The closed diagnostic-severity set; a value outside it coerces to "error" so grammars binding to the contract share one gradient
+var DIAGNOSTIC_SEVERITIES = {error: true, warning: true, info: true, hint: true};
+
 /*
 type: content type of text
 text: text to be parsed
@@ -305,7 +308,7 @@ WikiParser.prototype.addDiagnostic = function(diagnostic) {
 	this.diagnostics.push({
 		from: from,
 		to: to,
-		severity: diagnostic.severity || "error",
+		severity: DIAGNOSTIC_SEVERITIES[diagnostic.severity] ? diagnostic.severity : "error",
 		source: diagnostic.source || this.type,
 		code: diagnostic.code || "parse-error",
 		message: diagnostic.message || "Unable to parse source"
