@@ -3,7 +3,7 @@ title: $:/perf/tests/search-at-scale.js
 type: application/javascript
 tags: [[$:/tags/performance-test]]
 
-Measures full-text search cost over a large tiddler set — the community's most-reported scale wall. Search is un-indexed: every query scans every tiddler's title, tags and text. Progressive queries model per-keystroke cost, and an indexed-tag arm shows the cheaper alternative.
+Measures full-text search cost over a large tiddler set — the community's most-reported scale wall. Search is un-indexed: every query scans every tiddler's title, tags and text. The indexed-tag arm and its matched scan arm return the SAME set, so the pair shows the honest cost of an O(1) index lookup versus an O(n) scan for identical results.
 
 \*/
 
@@ -22,12 +22,15 @@ exports.run = function(context) {
 		prefix = "$:/temp/perftest/search/item-",
 		measurements = [];
 	seed(wiki,prefix,count);
+	// Warm the tag index so the indexed row measures a lookup, not a first build
+	wiki.filterTiddlers("[tag[perfitem-tagged]]");
 	try {
 		var battery = [
 			{id: "search-broad", filter: "[all[tiddlers]search[e]]", note: "one-character query: scans every tiddler, matches most (early-keystroke worst case)"},
-			{id: "search-narrowing", filter: "[all[tiddlers]search[design]]", note: "specific word: full scan, few matches (typical query)"},
+			{id: "search-word", filter: "[all[tiddlers]search[design]]", note: "specific common word: full scan, many matches (typical query)"},
 			{id: "search-title-only", filter: "[all[tiddlers]search:title[item]]", note: "title-only search: scans titles, skips body"},
-			{id: "search-vs-indexed-tag", filter: "[tag[perfitem-common]]", note: "the indexed alternative: an O(1) tag lookup instead of a scan"}
+			{id: "lookup-indexed-tag", filter: "[tag[perfitem-tagged]]", note: "O(1) tag-index lookup returning the tagged tenth"},
+			{id: "lookup-scan-same-set", filter: "[all[tiddlers]search[beacon]]", note: "O(n) scan returning the SAME tenth (only the tagged carry 'beacon') — the honest index-vs-scan pair"}
 		];
 		for(var i = 0; i < battery.length; i++) {
 			measurements.push(measureFilter(context,count,battery[i]));
@@ -63,11 +66,17 @@ function seed(wiki,prefix,count) {
 		for(var w = 0; w < 12; w++) {
 			body.push(WORDS[(i + w * 7) % WORDS.length]);
 		}
-		wiki.addTiddler(new $tw.Tiddler({
+		// Every tenth tiddler carries a distinctive tag AND the rare word "beacon",
+		// so a tag lookup and a scan for "beacon" return the identical set
+		var fields = {
 			title: prefix + i,
-			tags: ["perfitem-common"],
 			text: "Item " + i + ": " + body.join(" ") + "."
-		}));
+		};
+		if(i % 10 === 0) {
+			fields.tags = ["perfitem-tagged"];
+			fields.text += " beacon";
+		}
+		wiki.addTiddler(new $tw.Tiddler(fields));
 	}
 	wiki.clearTiddlerEventQueue();
 }
