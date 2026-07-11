@@ -322,7 +322,8 @@ function makeEnvironment(options) {
 		command: options.command || null,
 		measurementBaselineIterations: sanitizeNonNegativeCount(options.measurementBaselineIterations,DEFAULT_MEASUREMENT_BASELINE_ITERATIONS),
 		skipMeasurementDuringWarmup: options.skipMeasurementDuringWarmup !== false,
-		testFilter: options.testFilter || $tw.wiki.getTiddlerText(TEST_FILTER_CONFIG_TITLE,DEFAULT_TEST_FILTER)
+		testFilter: options.testFilter || $tw.wiki.getTiddlerText(TEST_FILTER_CONFIG_TITLE,DEFAULT_TEST_FILTER),
+		instrument: options.instrument === "yes"
 	};
 	if(typeof process !== "undefined") {
 		environment.nodeVersion = process.version;
@@ -392,11 +393,21 @@ function run(options) {
 				defaultIterations: defaultIterations,
 				measurementBaselineIterations: measurementBaselineIterations,
 				skipMeasurementDuringWarmup: skipMeasurementDuringWarmup,
-				testFilter: testFilter
+				testFilter: testFilter,
+				instrument: options.instrument
 			}),
 			benchmarks: []
 		},
 		chain = Promise.resolve();
+	// Pull in TiddlyWiki's own instrumentation: enabling $tw.perf makes core
+	// operations (filter compilation and any $tw.perf.measure-wrapped call)
+	// record time AND invocations, so the report can show internal work the
+	// fixtures drive — with invocation counts that expose a mis-attributed hot spot.
+	var instrument = options.instrument === "yes" && !!$tw.perf;
+	if(instrument) {
+		$tw.perf.enabled = true;
+		$tw.perf.measures = {};
+	}
 	$tw.utils.each(titles,function(title) {
 		chain = chain.then(function() {
 			var benchmark = loadBenchmark(title),
@@ -460,8 +471,30 @@ function run(options) {
 			results.status = "failed";
 			results.error = "No performance tests found";
 		}
+		if(instrument) {
+			results.internalMeasures = captureInternalMeasures();
+		}
 		return results;
 	});
+}
+
+// Snapshot TiddlyWiki's own $tw.perf instrumentation as invocation-counted rows,
+// sorted by total time. Invocations are the honest half: a row with large total
+// time but few invocations is a genuinely heavy call; large time over many
+// invocations is death by a thousand cuts. Both read differently to an optimiser.
+function captureInternalMeasures() {
+	var measures = ($tw.perf && $tw.perf.measures) || {},
+		rows = [];
+	for(var name in measures) {
+		rows.push({
+			name: name,
+			invocations: measures[name].invocations,
+			totalMs: measures[name].time,
+			avgMs: measures[name].invocations ? measures[name].time / measures[name].invocations : 0
+		});
+	}
+	rows.sort(function(a,b) {return b.totalMs - a.totalMs;});
+	return rows;
 }
 
 function reportToConsole(results) {
@@ -490,6 +523,13 @@ function reportToConsole(results) {
 	});
 	if(noisy > 0) {
 		console.log("  " + noisy + " row(s) marked NOISY: their spread swamps small effects. Any comparison on those rows needs more iterations before a difference is believable.");
+	}
+	if(results.internalMeasures && results.internalMeasures.length) {
+		console.log("  --- TiddlyWiki internal instrumentation ($tw.perf), by total time ---");
+		console.log("    Invocations are the honest half: a big share on few calls is a heavy call; the same share over many calls is death by a thousand cuts.");
+		$tw.utils.each(results.internalMeasures,function(m) {
+			console.log("    " + m.totalMs.toFixed(2) + "ms total, " + m.invocations + " calls, " + m.avgMs.toFixed(4) + "ms/call  " + m.name);
+		});
 	}
 }
 

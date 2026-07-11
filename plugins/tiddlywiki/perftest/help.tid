@@ -4,7 +4,7 @@ description: Run performance tests
 This runs performance tests in JavaScript tiddlers tagged with `$:/tags/performance-test`.
 
 ```
---perf [output=<filename>] [iterations=<number>] [baselineIterations=<number>] [warmupCapture=yes|no] [filter=<filter>]
+--perf [output=<filename>] [iterations=<number>] [baselineIterations=<number>] [warmupCapture=yes|no] [filter=<filter>] [instrument=yes|no]
 ```
 
 ''output'' - optional filename for writing JSON results. The filename is resolved relative to the output directory.
@@ -12,6 +12,7 @@ This runs performance tests in JavaScript tiddlers tagged with `$:/tags/performa
 ''baselineIterations'' - optional count used to calibrate measurement-overhead baseline subtraction. Default: 20.
 ''warmupCapture'' - optional control for warmup measurement capture. Default: `no` (warmup keeps behavior but skips timing capture overhead where possible).
 ''filter'' - optional filter for selecting benchmark tiddlers. The browser runner reads `$:/config/Performance/TestFilter` when no command option supplies a filter.
+''instrument'' - `yes` enables TiddlyWiki's own `$tw.perf` instrumentation for the run and reports the internal operations the fixtures drove (filter compilation and any `$tw.perf.measure`-wrapped call) with time AND invocation counts. Default: `no`. Note: instrumentation adds a small per-call timing overhead, so the fixture timings in an instrumented run read slightly higher than an uninstrumented one.
 
 For example:
 

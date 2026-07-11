@@ -42,6 +42,9 @@ Command.prototype.execute = function() {
 	if(this.params.filter !== undefined) {
 		runOptions.testFilter = this.params.filter;
 	}
+	if(this.params.instrument !== undefined) {
+		runOptions.instrument = this.params.instrument;
+	}
 	runOptions.command = "--perf" +
 		(runOptions.output ? " output=" + runOptions.output : "") +
 		(runOptions.defaultIterations !== undefined ? " iterations=" + runOptions.defaultIterations : "") +
