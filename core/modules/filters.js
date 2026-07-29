@@ -301,7 +301,7 @@ exports.compileFilter = function(filterString) {
 						}
 						var resultList = widgetClass.evaluateVariable(widget,operand._varTree.name,{params: operand._varTree.params, source: source});
 						if((resultList.length > 0 && resultList[0] !== undefined) || resultList.length === 0) {
-							operand.multiValue = widgetClass.evaluateVariable(widget,operand._varTree.name,{params: operand._varTree.params, source: source}) || [];
+							operand.multiValue = resultList || [];
 							operand.value = operand.multiValue[0] || "";
 						} else {
 							operand.value = "";
