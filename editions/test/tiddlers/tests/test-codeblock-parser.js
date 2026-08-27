@@ -110,9 +110,6 @@ describe("codeblock parser tests (#9047)", function() {
 	});
 
 
-	// The fence rules earn their keep at the edges, so each failure state states its own
-	// expectation: what closes, what refuses to close, and what the parser says when nothing does.
-
 	it("closes on a fence longer than the one that opened it", function() {
 		var tree = parse("```js\nvar a = 1;\n`````\n");
 		expect(tree.length).toBe(1);
