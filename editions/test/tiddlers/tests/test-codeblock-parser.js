@@ -109,4 +109,74 @@ describe("codeblock parser tests (#9047)", function() {
 		expect(source.substring(language.start,language.end)).toBe("js");
 	});
 
+
+	// The fence rules earn their keep at the edges, so each failure state states its own
+	// expectation: what closes, what refuses to close, and what the parser says when nothing does.
+
+	it("closes on a fence longer than the one that opened it", function() {
+		var tree = parse("```js\nvar a = 1;\n`````\n");
+		expect(tree.length).toBe(1);
+		expect(tree[0].attributes.code.value).toBe("var a = 1;");
+	});
+
+	it("nests three fence lengths", function() {
+		var tree = parse("`````\n````\n```js\nvar a = 1;\n```\n````\n`````");
+		expect(tree.length).toBe(1);
+		expect(tree[0].attributes.code.value).toBe("````\n```js\nvar a = 1;\n```\n````");
+	});
+
+	it("keeps a shorter run of backticks as content", function() {
+		var tree = parse("````\nsome ``` here\n````");
+		expect(tree[0].attributes.code.value).toBe("some ``` here");
+	});
+
+	it("takes an empty language from an info string of whitespace alone", function() {
+		var tree = parse("```   \ncontent\n```");
+		expect(tree.length).toBe(1);
+		expect(tree[0].attributes.language.value).toBe("");
+	});
+
+	it("refuses to open on an info string carrying a backtick", function() {
+		var tree = parse("```a`b\ncontent\n```");
+		expect(tree[0].type).not.toBe("codeblock");
+	});
+
+	it("refuses to close on a fence indented beyond three spaces", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","```js\nvar a = 1;\n    ```\ntail\n");
+		expect(result.tree[0].type).toBe("codeblock");
+		expect(result.tree[0].attributes.code.value).toContain("tail");
+		expect(result.diagnostics[0].code).toBe("unterminated-codeblock");
+	});
+
+	it("refuses to close on a fence carrying trailing text", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","```js\nvar a = 1;\n``` and more\n");
+		expect(result.tree[0].attributes.code.value).toContain("``` and more");
+		expect(result.diagnostics[0].code).toBe("unterminated-codeblock");
+	});
+
+	it("reports a block that never closes and keeps its content", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","```js\nvar a = 1;\n\n! A heading\n");
+		expect(result.tree[0].type).toBe("codeblock");
+		expect(result.tree[0].attributes.code.value).toContain("! A heading");
+		expect(result.diagnostics.length).toBe(1);
+		expect(result.diagnostics[0].code).toBe("unterminated-codeblock");
+		expect(result.diagnostics[0].severity).toBe("warning");
+	});
+
+	it("closes an indented block on an equally indented fence", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","   ```js\n   var a = 1;\n   ```\n");
+		expect(result.tree[0].type).toBe("codeblock");
+		expect(result.diagnostics.length).toBe(0);
+	});
+
+	it("closes a block whose fence ends the source without a newline", function() {
+		var tree = parse("```js\nvar a = 1;\n```");
+		expect(tree.length).toBe(1);
+		expect(tree[0].attributes.code.value).toBe("var a = 1;");
+	});
+
 });
