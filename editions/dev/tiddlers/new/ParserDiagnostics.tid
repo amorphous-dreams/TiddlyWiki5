@@ -1,5 +1,5 @@
 created: 20260711120000000
-modified: 20260711120000000
+modified: 20260827130000000
 title: ParserDiagnostics
 type: text/vnd.tiddlywiki
 
@@ -24,6 +24,12 @@ A parse result carries a `diagnostics` array. Each entry holds:
 `$tw.utils.makeParseDiagnostic(diagnostic,options)` normalises an entry and clamps its range to the source. Pass `{source, sourceLength}` as the options.
 
 The [[parse-diagnostics Operator]] reads the array through the parse cache, and grades a tiddler by the worst severity it carries.
+
+!! Choosing a severity
+
+A severity says how firmly the parser holds that the author wants something different. A run that never closes reports at `warning`: the author reached for markup and did not get it.
+
+An element that never closes reports at `hint` instead, because TiddlyWiki authors deliberately leave a wrapping widget open so it scopes the rest of a tiddler. The construct carries a real fault often enough to name and a real idiom often enough that naming it as a fault would misread the author.
 
 !! Recovering inside a rule
 
