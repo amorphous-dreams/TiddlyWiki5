@@ -12,6 +12,6 @@ type: text/vnd.tiddlywiki
 
 An emphasis run now ends at its closing delimiter or at the end of its block, whichever arrives first, so an unclosed delimiter no longer reaches to the end of the tiddler. An unclosed emphasis, inline style or inline code delimiter renders as the literal text the author typed.
 
-A fenced code block now follows the same rules as every other markup language that carries one. The opening fence takes three or more backticks and closes only on a fence at least as long, so a longer fence holds shorter runs of backticks. The info string after the fence may name any language, including one carrying a slash or a dot, so the MIME types the [[Highlight Plugin|$:/plugins/tiddlywiki/highlight]] already maps reach a fenced block at last. Either fence may carry up to three spaces of indentation, so a block nested in a list closes where it is written.
+A fenced code block takes an opening fence of three or more backticks and closes only on a fence at least as long, so a longer fence holds shorter runs of backticks. The info string after the fence may name any language, including one carrying a slash or a dot, so the MIME types the [[Highlight Plugin|$:/plugins/tiddlywiki/highlight]] maps reach a fenced block. Either fence may carry up to three spaces of indentation, so a block nested in a list closes where it is written.
 
 The parser records a diagnostic whenever it recovers, carrying a range, a severity, a code and a message, and the new [[parse-diagnostics Operator]] lists the tiddlers a wiki cannot fully read.
