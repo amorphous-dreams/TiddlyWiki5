@@ -438,10 +438,25 @@ describe("WikiParser block constructs report a missing terminator", function() {
 		});
 	});
 
-	// TiddlyWiki authors deliberately leave a wrapping widget open so it scopes the rest of the tiddler, so an unclosed tag earns no receipt
-	it("reports nothing for a widget left open to scope the rest of the tiddler", function() {
+	// TiddlyWiki authors deliberately leave a wrapping widget open so it scopes the rest of the tiddler, so an unclosed tag reports at hint severity
+	it("hints at a widget left open to scope the rest of the tiddler", function() {
 		var wiki = new $tw.Wiki(),
 			result = wiki.parseText("text/vnd.tiddlywiki","<$let colour=\"red\">\n\nthe body\n\nmore body\n");
+		expect(result.diagnostics.length).toBe(1);
+		expect(result.diagnostics[0].code).toBe("unterminated-html");
+		expect(result.diagnostics[0].severity).toBe("hint");
+	});
+
+	it("hints at an unclosed inline widget", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","<$button>the body\n");
+		expect(result.diagnostics[0].code).toBe("unterminated-html");
+		expect(result.diagnostics[0].severity).toBe("hint");
+	});
+
+	it("hints at nothing when the tag closes", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","<$button>the body</$button>\n");
 		expect(result.diagnostics.length).toBe(0);
 	});
 
