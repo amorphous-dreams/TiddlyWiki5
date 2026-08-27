@@ -5,7 +5,7 @@ type: text/vnd.tiddlywiki
 
 !! Introduction
 
-A parser recovers rather than throws. Meeting source it cannot fully make sense of, it renders what it can and records a diagnostic saying what it did, so a tiddler degrades on a gradient instead of collapsing, and the author hears about it.
+A parser recovers rather than throws. Meeting source it cannot fully make sense of, it renders what it can and records a diagnostic saying what it did. The tiddler stands, and the author hears about the fault.
 
 The contract belongs to the parse result rather than to the wikitext parser, so any parser may populate it.
 
