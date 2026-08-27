@@ -313,6 +313,17 @@ describe("WikiParser diagnostic producers", function() {
 		expect(result.diagnostics[0].severity).toBe("warning");
 	});
 
+	// The following test can be enabled once $:/core/templates/tiddlywiki5.html and
+	// $:/core/templates/tiddlywiki5.js no longer rely on an inline code span reaching
+	// across blocks
+	xit("should stop an inline code span at the end of its block", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","A stray ` here.\n\nA following paragraph.\n\n! A heading and a `closer` later.");
+		expect(result.tree.length).toBe(3);
+		expect(result.tree[2].tag).toBe("h1");
+		expect(result.diagnostics[0].code).toBe("unterminated-codeinline");
+	});
+
 	it("should leave a closed hard linebreak run undiagnosed", function() {
 		var wiki = new $tw.Wiki(),
 			result = wiki.parseText("text/vnd.tiddlywiki","\"\"\"\nline one\nline two\n\"\"\"\n\nA following paragraph.");
@@ -427,10 +438,25 @@ describe("WikiParser block constructs report a missing terminator", function() {
 		});
 	});
 
-	// TiddlyWiki authors deliberately leave a wrapping widget open so it scopes the rest of the tiddler, so an unclosed tag earns no receipt
-	it("reports nothing for a widget left open to scope the rest of the tiddler", function() {
+	// TiddlyWiki authors deliberately leave a wrapping widget open so it scopes the rest of the tiddler, so an unclosed tag reports at hint severity
+	it("hints at a widget left open to scope the rest of the tiddler", function() {
 		var wiki = new $tw.Wiki(),
 			result = wiki.parseText("text/vnd.tiddlywiki","<$let colour=\"red\">\n\nthe body\n\nmore body\n");
+		expect(result.diagnostics.length).toBe(1);
+		expect(result.diagnostics[0].code).toBe("unterminated-html");
+		expect(result.diagnostics[0].severity).toBe("hint");
+	});
+
+	it("hints at an unclosed inline widget", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","<$button>the body\n");
+		expect(result.diagnostics[0].code).toBe("unterminated-html");
+		expect(result.diagnostics[0].severity).toBe("hint");
+	});
+
+	it("hints at nothing when the tag closes", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","<$button>the body</$button>\n");
 		expect(result.diagnostics.length).toBe(0);
 	});
 

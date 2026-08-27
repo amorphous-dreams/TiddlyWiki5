@@ -45,7 +45,7 @@ exports.findNextMatch = function(startPos) {
 Parse the most recent match
 */
 exports.parse = function() {
-	// Parsing the body runs other rules against this rule instance, so the match details get read before that happens
+	// Read the match details before other rules run against this instance
 	var conditionalStart = this.match.index,
 		filterCondition = this.parser.source.substring(this.match.index + this.match[0].length,this.terminateIfMatch.index);
 	// Advance the parser position to past the %>

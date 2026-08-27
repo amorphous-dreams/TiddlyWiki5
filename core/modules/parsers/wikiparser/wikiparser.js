@@ -272,12 +272,12 @@ WikiParser.prototype.parseBlock = function(terminatorRegExpString) {
 Recover from a recoverable block rule failure: preserve the block source as a text node, record a normalised diagnostic, and resync the parse position to the next block boundary
 */
 WikiParser.prototype.recoverBlock = function(start,error,ruleName) {
-	// Resync to the next block boundary so only the failed block degrades
+	// Resync to the next block boundary
 	var boundaryRegExp = /(\r?\n\r?\n)/mg;
 	boundaryRegExp.lastIndex = start;
 	var boundaryMatch = boundaryRegExp.exec(this.source),
 		end = boundaryMatch ? boundaryMatch.index + boundaryMatch[0].length : this.sourceLength;
-	// A recovery that consumed nothing would spin the parser forever, so the position always advances
+	// Always advance the parse position
 	this.pos = Math.min(Math.max(end,start + 1),this.sourceLength);
 	if(this.pos <= start && start < this.sourceLength) {
 		throw new Error("WikiParser.recoverBlock failed to advance the parse position at " + start);
@@ -305,7 +305,7 @@ WikiParser.prototype.addDiagnostic = function(diagnostic) {
 	return this.diagnostics[this.diagnostics.length - 1];
 };
 
-// An unmatched delimiter otherwise consumes every block to the end of the source, so a rule asks whether its closer arrives at all
+// Ask whether a closer arrives at all
 WikiParser.prototype.hasCloser = function(closerRegExp) {
 	closerRegExp.lastIndex = this.pos;
 	return !!closerRegExp.exec(this.source);

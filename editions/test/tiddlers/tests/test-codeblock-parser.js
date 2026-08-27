@@ -66,4 +66,47 @@ describe("codeblock parser tests (#9047)", function() {
 		expect(tree[0].type).toBe("codeblock");
 		expect(tree[0].attributes.code.value).toBe("foo");
 	});
+
+	it("names a language carrying a slash or a dot", function() {
+		var tree = parse("```text/vnd.tiddlywiki\ncontent\n```");
+		expect(tree.length).toBe(1);
+		expect(tree[0].attributes.language.value).toBe("text/vnd.tiddlywiki");
+		expect(tree[0].attributes.code.value).toBe("content");
+	});
+
+	it("takes the first word of the info string as the language", function() {
+		var tree = parse("```  js  extra words\ncontent\n```");
+		expect(tree[0].attributes.language.value).toBe("js");
+	});
+
+	it("holds a shorter fence inside a longer one", function() {
+		var tree = parse("````\n```js\nvar a = 1;\n```\n````");
+		expect(tree.length).toBe(1);
+		expect(tree[0].attributes.code.value).toBe("```js\nvar a = 1;\n```");
+	});
+
+	it("refuses a closing fence shorter than the opening one", function() {
+		var tree = parse("````\ncontent\n```\nstill inside\n````");
+		expect(tree.length).toBe(1);
+		expect(tree[0].attributes.code.value).toBe("content\n```\nstill inside");
+	});
+
+	it("closes on a fence carrying up to three spaces of indentation", function() {
+		var tree = parse("```js\nvar a = 1;\n   ```\n");
+		expect(tree.length).toBe(1);
+		expect(tree[0].attributes.code.value).toBe("var a = 1;");
+	});
+
+	it("closes on a fence followed by trailing whitespace", function() {
+		var tree = parse("```js\nvar a = 1;\n``` \n");
+		expect(tree[0].attributes.code.value).toBe("var a = 1;");
+	});
+
+	it("records a language start and end that address the language itself", function() {
+		var source = "```  js\ncontent\n```",
+			node = parse(source)[0],
+			language = node.attributes.language;
+		expect(source.substring(language.start,language.end)).toBe("js");
+	});
+
 });

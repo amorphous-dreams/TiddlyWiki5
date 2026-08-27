@@ -120,7 +120,7 @@ exports.getParseTreeText = function getParseTreeText(tree) {
 	return output.join("");
 };
 
-// The closed diagnostic-severity set; a value outside it coerces to "error" so every grammar binding to the contract shares one gradient
+// Diagnostic severities; an unknown value coerces to "error"
 var DIAGNOSTIC_SEVERITIES = {error: true, warning: true, info: true, hint: true};
 
 /*
