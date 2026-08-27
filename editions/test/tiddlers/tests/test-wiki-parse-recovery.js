@@ -304,6 +304,20 @@ describe("WikiParser diagnostic producers", function() {
 		expect(result.diagnostics[0].code).toBe("unterminated-typedblock");
 		expect(result.diagnostics[0].severity).toBe("warning");
 	});
+
+	it("should report a hard linebreak run that never meets its closing delimiter", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","\"\"\"\nline one\nline two\n\nA following paragraph.");
+		expect(result.diagnostics.length).toBe(1);
+		expect(result.diagnostics[0].code).toBe("unterminated-hardlinebreaks");
+		expect(result.diagnostics[0].severity).toBe("warning");
+	});
+
+	it("should leave a closed hard linebreak run undiagnosed", function() {
+		var wiki = new $tw.Wiki(),
+			result = wiki.parseText("text/vnd.tiddlywiki","\"\"\"\nline one\nline two\n\"\"\"\n\nA following paragraph.");
+		expect(result.diagnostics.length).toBe(0);
+	});
 });
 
 describe("WikiParser unclosed inline delimiters stop short of the source end", function() {
