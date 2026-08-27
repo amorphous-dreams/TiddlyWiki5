@@ -52,8 +52,7 @@ exports.parse = function() {
 			}
 		}
 	} while(match && !match[1]);
-	// A run that reaches the end of the source never met its closing delimiter, so the lines
-	// after it read as one hard-wrapped run. The tree stands; the author gets the receipt.
+	// Report a run that never met its closing delimiter
 	if(!match) {
 		this.parser.addDiagnostic({
 			from: delimiterStart,

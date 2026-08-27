@@ -20,7 +20,7 @@ exports.init = function(parser) {
 
 exports.parse = function() {
 	var classes = ["tc-quote"];
-	// Parsing the cite runs other rules against this rule instance, so the match details get read before that happens
+	// Read the match details before other rules run against this instance
 	var quoteStart = this.match.index,
 		quoteMarker = this.match[1];
 	// Get all the details of the match

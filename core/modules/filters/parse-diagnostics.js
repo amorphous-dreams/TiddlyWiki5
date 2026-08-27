@@ -15,7 +15,7 @@ Filter operator that reads a tiddler's parse diagnostics from the parse cache. I
 
 "use strict";
 
-// Rank the closed severity set, lowest number wins (worst). A stable grade moves only when the worst class of problem changes
+// Rank the severities, lowest number wins
 var SEVERITY_RANK = {error: 1, warning: 2, info: 3, hint: 4};
 
 function gradeOf(diagnostics) {
