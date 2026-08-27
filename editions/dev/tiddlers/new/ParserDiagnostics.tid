@@ -25,11 +25,9 @@ A parse result carries a `diagnostics` array. Each entry holds:
 
 The [[parse-diagnostics Operator]] reads the array through the parse cache, and grades a tiddler by the worst severity it carries.
 
-!! Choosing a severity
+!! Severities
 
-A severity says how firmly the parser holds that the author wants something different. A run that never closes reports at `warning`: the author reached for markup and did not get it.
-
-An element that never closes reports at `hint` instead, because TiddlyWiki authors deliberately leave a wrapping widget open so it scopes the rest of a tiddler. The construct carries a real fault often enough to name and a real idiom often enough that naming it as a fault would misread the author.
+A run that never closes reports at `warning`. An element that never closes reports at `hint`, and scopes the rest of the tiddler.
 
 !! Recovering inside a rule
 
