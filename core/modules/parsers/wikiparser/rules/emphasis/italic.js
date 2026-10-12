@@ -21,6 +21,47 @@ This wikiparser can be modified using the rules eg:
 "use strict";
 
 var BLOCK_BOUNDARY = /^\r?\n/;
+function followsUriScheme(source,pos) {
+	while(pos > 0 && source.charAt(pos - 1) === "/") {
+		pos--;
+	}
+	if(source.charAt(pos - 1) !== ":") {
+		return false;
+	}
+	var schemeEnd = pos - 1,
+		schemeStart = schemeEnd;
+	while(schemeStart > 0 && /[A-Za-z0-9+.-]/.test(source.charAt(schemeStart - 1))) {
+		schemeStart--;
+	}
+	return schemeStart < schemeEnd &&
+		/[A-Za-z]/.test(source.charAt(schemeStart)) &&
+		source.charAt(schemeStart - 1) !== "_";
+}
+
+function makeItalicRegExp(withBlockBoundary) {
+	var cachedSource, cachedStart, cachedMatch,
+		regexp = withBlockBoundary ? /\/\/|\r?\n\r?\n/mg : /\/\//mg;
+	regexp.exec = function(source) {
+		var searchStart = this.lastIndex;
+		// Parser retries move forward, so the next match (or no match) remains valid.
+		if(cachedSource === source && cachedStart <= searchStart && (!cachedMatch || searchStart <= cachedMatch.index)) {
+			this.lastIndex = cachedMatch ? cachedMatch.index + cachedMatch[0].length : 0;
+			return cachedMatch;
+		}
+		var match = RegExp.prototype.exec.call(this,source);
+		while(match && match[0] === "//" && followsUriScheme(source,match.index)) {
+			while(source.charAt(this.lastIndex) === "/") {
+				this.lastIndex++;
+			}
+			match = RegExp.prototype.exec.call(this,source);
+		}
+		cachedSource = source;
+		cachedStart = searchStart;
+		cachedMatch = match;
+		return match;
+	};
+	return regexp;
+}
 
 exports.name = "italic";
 exports.types = {inline: true};
@@ -28,7 +69,7 @@ exports.types = {inline: true};
 exports.init = function(parser) {
 	this.parser = parser;
 	// Regexp to match
-	this.matchRegExp = /\/\//mg;
+	this.matchRegExp = makeItalicRegExp();
 };
 
 exports.parse = function() {
@@ -38,7 +79,7 @@ exports.parse = function() {
 
 	// Parse the run including the terminator
 	var bodyStart = this.parser.pos;
-	var ex = this.parser.parseInlineRunTerminatedExtended(/\/\/|\r?\n\r?\n/mg,{eatTerminator: true});
+	var ex = this.parser.parseInlineRunTerminatedExtended(makeItalicRegExp(true),{eatTerminator: true});
 	if(!ex.match || BLOCK_BOUNDARY.test(ex.match[0])) {
 		this.parser.pos = bodyStart;
 		return [{type: "text", text: "//", start: delimiterStart, end: bodyStart}];

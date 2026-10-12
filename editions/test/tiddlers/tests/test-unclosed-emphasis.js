@@ -26,4 +26,10 @@ describe("Unclosed emphasis", function() {
 			expect(tree[0].children[0].type).toBe("element");
 		});
 	});
+
+	it("keeps a URI inside an unclosed italic run without consuming the next block", function() {
+		var tree = wiki.parseText("text/vnd.tiddlywiki","//unfinished lar://a\n\n! Following").tree;
+		expect(tree[0].children[0].text).toBe("//");
+		expect(tree[1].tag).toBe("h1");
+	});
 });
