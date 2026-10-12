@@ -25,7 +25,7 @@ A question tiddler has the following fields:
 !! Rules
 
 * Only one question waits for an answer at a time. Asking another question withdraws the earlier one
-* A confirmation is refused if the question is no longer waiting, or if the tiddlers that the action concerns have changed since the question was asked. An alert explains that nothing has been done. Changes to the fields listed in [[$:/config/ConfirmIgnoredFields]] are ignored
+* A confirmation is refused if the question is no longer waiting or its tiddler has been altered, or if the tiddlers that the action concerns have changed since the question was asked. An alert explains that nothing has been done. Changes to the fields listed in [[$:/config/ConfirmIgnoredFields]] are ignored
 * Questions are never saved or synchronised, in common with all tiddlers with the prefix `$:/temp/`
 * The words on the buttons are taken from the language tiddlers `$:/language/Confirmation/<confirm-type>/Yes` and `$:/language/Confirmation/<confirm-type>/No`, falling back to [[$:/language/Yes]] and [[$:/language/No]]
 

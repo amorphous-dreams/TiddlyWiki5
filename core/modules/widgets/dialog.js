@@ -52,6 +52,7 @@ DialogWidget.prototype.render = function(parent,nextSibling) {
 	this.domNodes.push(domNode);
 	// Make the rest of the page inert
 	this.inertNodes = [];
+	this.isDisplayed = true;
 	this.updateInertNodes();
 	// Move the focus into the dialog, remembering where it was
 	this.focusedNode = this.document.activeElement;
@@ -75,6 +76,21 @@ DialogWidget.prototype.execute = function() {
 Mark as inert the siblings of the dialog and of each of its ancestors
 */
 DialogWidget.prototype.updateInertNodes = function() {
+	var self = this;
+	// Mark again once the current refresh cycle has finished rendering
+	if(!this.isUpdatePending) {
+		this.isUpdatePending = true;
+		$tw.utils.nextTick(function() {
+			self.isUpdatePending = false;
+			if(self.isDisplayed) {
+				self.markInertNodes();
+			}
+		});
+	}
+	this.markInertNodes();
+};
+
+DialogWidget.prototype.markInertNodes = function() {
 	var node = this.domNodes[0];
 	while(node && node.parentNode && node !== this.document.body) {
 		var siblings = node.parentNode.children;
@@ -113,6 +129,7 @@ DialogWidget.prototype.refresh = function(changedTiddlers) {
 Restore the rest of the page when the dialog is removed
 */
 DialogWidget.prototype.onDestroy = function() {
+	this.isDisplayed = false;
 	$tw.utils.each(this.inertNodes,function(node) {
 		node.removeAttribute("inert");
 	});

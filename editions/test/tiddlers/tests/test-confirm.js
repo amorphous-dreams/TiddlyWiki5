@@ -209,6 +209,16 @@ describe("Confirmation tests", function() {
 		expect(getAlertText(info.wiki)).toBe($tw.language.getString("ConfirmationWithdrawn"));
 	});
 
+	it("should refuse an altered question whatever fields are ignored", function() {
+		var info = setupNavigator([{title: "HelloThere", text: "Some text"},{title: "$:/config/ConfirmIgnoredFields", text: "text"}]);
+		info.navigator.dispatchEvent({type: "tm-delete-tiddler", tiddlerTitle: "HelloThere"});
+		var question = getQuestion(info.wiki);
+		info.wiki.addTiddler(new $tw.Tiddler(question,{text: "Do you wish to keep the tiddler?"}));
+		answer(info,question.fields.title,"yes");
+		expect(info.wiki.tiddlerExists("HelloThere")).toBe(true);
+		expect(getAlertText(info.wiki)).toBe($tw.language.getString("ConfirmationWithdrawn"));
+	});
+
 	it("should refuse a confirmation of a question that was never asked", function() {
 		var info = setupNavigator([{title: "HelloThere", text: "Some text"}]);
 		info.wiki.addTiddler({title: "$:/temp/confirm/forged", tags: [QUESTION_TAG], text: "Forged"});
@@ -463,6 +473,36 @@ describe("Confirmation tests", function() {
 			changes[title] = {deleted: true};
 			info.refresh(changes);
 			expect(late.getAttribute("inert")).toBe(undefined);
+		});
+
+		it("should make inert the nodes that later siblings render in the same refresh", function(done) {
+			var wiki = new $tw.Wiki();
+			wiki.addTiddler({title: "Root", text: "{{$:/core/ui/Confirmations}}<$list filter='[tag[late]]'><div class='late'>Late</div></$list>"});
+			$tw.utils.each(["$:/core/ui/Confirmations","$:/core/ui/ConfirmTemplate","$:/language/Yes","$:/language/No","$:/language/Confirmation/Caption"],function(title) {
+				wiki.addTiddler($tw.wiki.getTiddler(title));
+			});
+			var widgetNode = wiki.makeTranscludeWidget("Root",{document: $tw.fakeDocument, parentWidget: $tw.rootWidget}),
+				container = $tw.fakeDocument.createElement("div");
+			widgetNode.render(container,null);
+			$tw.utils.confirm("Really?",{type: "action", widget: widgetNode, event: {type: "tm-test"}});
+			var title = wiki.getTiddlersWithTag(QUESTION_TAG)[0],
+				changes = {};
+			changes[title] = {modified: true};
+			widgetNode.refresh(changes,container,null);
+			wiki.addTiddler({title: "Late", tags: "late"});
+			widgetNode.refresh({Late: {modified: true}},container,null);
+			$tw.utils.nextTick(function() {
+				expect(findByClass(container,"late").getAttribute("inert")).toBe("");
+				// A dialog that has gone marks nothing afterwards
+				$tw.utils.answerConfirmation(wiki,title,false);
+				changes = {};
+				changes[title] = {deleted: true};
+				widgetNode.refresh(changes,container,null);
+				$tw.utils.nextTick(function() {
+					expect(findByClass(container,"late").getAttribute("inert")).toBe(undefined);
+					done();
+				});
+			});
 		});
 
 		it("should leave alone the nodes that were already inert", function() {

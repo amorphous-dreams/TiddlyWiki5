@@ -105,8 +105,8 @@ exports.answerConfirmation = function(wiki,title,confirmed) {
 	var question = questions[title],
 		ignoredFields = $tw.utils.parseStringArray(wiki.getTiddlerText(IGNORED_FIELDS_TITLE,"")) || [],
 		tiddler = wiki.getTiddler(title),
-		// The question must still read as it was asked
-		isWaiting = !!question && question.wiki === wiki && !!tiddler && tiddler.isEqual(question.tiddler,ignoredFields);
+		// The question must still read exactly as it was asked
+		isWaiting = !!question && question.wiki === wiki && !!tiddler && tiddler.isEqual(question.tiddler);
 	// Withdraw the question
 	if(question && question.wiki === wiki) {
 		delete questions[title];

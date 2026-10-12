@@ -22,7 +22,7 @@ The content of the `<$dialog>` widget is displayed within the dialog.
 
 The widget generates a `<div>` element with the attribute `aria-modal="true"`. When it is rendered:
 
-* The `inert` attribute is assigned to the siblings of the element and to the siblings of each of its ancestors
+* The `inert` attribute is assigned to the siblings of the element and to the siblings of each of its ancestors. The widget repeats this on every refresh, so that nodes rendered while the dialog is displayed are inert too
 * The focus moves to the first button, link or input control within the dialog
 
 When the widget is removed the `inert` attributes are removed again and the focus returns to where it was.
