@@ -55,10 +55,14 @@ Invoke the action associated with this widget
 */
 ConfirmWidget.prototype.invokeAction = function(triggeringWidget,event) {
 	var invokeActions = true,
-		handled = true,
-		win = event && event.event && event.event.view ? event.event.view : window;
+		handled = true;
 	if(this.prompt) {
-		invokeActions = win.confirm(this.message);
+		invokeActions = $tw.utils.confirm(this.message,{
+			type: "action",
+			widget: this,
+			event: event,
+			triggeringWidget: triggeringWidget
+		});
 	}
 	if(invokeActions) {
 		handled = this.invokeActions(triggeringWidget,event);

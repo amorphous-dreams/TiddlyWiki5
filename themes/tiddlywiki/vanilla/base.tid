@@ -2102,6 +2102,49 @@ html body.tc-body.tc-single-tiddler-window {
 	border: 1px solid <<colour modal-border>>;
 }
 
+.tc-confirm-backdrop {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 10000;
+	opacity: 0.4;
+	background-color: <<colour modal-backdrop>>;
+}
+
+.tc-confirm {
+	position: fixed;
+	top: 20%;
+	left: 50%;
+	width: 30em;
+	max-width: 90%;
+	transform: translateX(-50%);
+	box-sizing: border-box;
+	z-index: 10100;
+	padding: 1em;
+	border-radius: 6px;
+	color: <<colour foreground>>;
+	background-color: <<colour modal-background>>;
+	border: 1px solid <<colour modal-border>>;
+	box-shadow: 0 3px 7px rgba(0,0,0,0.3);
+}
+
+.tc-confirm-message {
+	margin-bottom: 1em;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+.tc-confirm-buttons {
+	text-align: right;
+}
+
+.tc-confirm-buttons button {
+	margin-left: 0.5em;
+	padding: 0.4em 1em;
+}
+
 @media (max-width: 55em) {
 	.tc-modal {
 		position: fixed;

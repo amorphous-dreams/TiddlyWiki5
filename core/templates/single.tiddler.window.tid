@@ -24,4 +24,6 @@ tc-page-container tc-page-view-$(storyviewTitle)$ tc-language-$(languageTitle)$
 
 </div>
 
+{{$:/core/ui/Confirmations}}
+
 </$vars>

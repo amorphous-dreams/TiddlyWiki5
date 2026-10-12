@@ -13,6 +13,17 @@ ConfirmDeleteTiddlers: Are you sure you wish to delete <<resultCount>> tiddler(s
 ConfirmOverwriteTiddler: Do you wish to overwrite the tiddler "<$text text=<<title>>/>"?
 ConfirmEditShadowTiddler: You are about to edit a ShadowTiddler. Any changes will override the default system making future upgrades non-trivial. Are you sure you want to edit "<$text text=<<title>>/>"?
 ConfirmAction: Do you wish to proceed?
+Confirmation/Caption: Confirmation
+Confirmation/cancel/No: Keep editing
+Confirmation/cancel/Yes: Discard changes
+Confirmation/delete/No: Keep
+Confirmation/delete/Yes: Delete
+Confirmation/edit-shadow/No: Leave
+Confirmation/edit-shadow/Yes: Edit
+Confirmation/overwrite/No: Keep editing
+Confirmation/overwrite/Yes: Overwrite
+ConfirmationChanged: The tiddlers changed while the question was waiting for an answer, so nothing has been done
+ConfirmationWithdrawn: That question is no longer waiting for an answer, so nothing has been done
 Count: count
 DefaultNewTiddlerTitle: New Tiddler
 Diffs/CountMessage: <<diff-count>> differences

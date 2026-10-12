@@ -1,0 +1,38 @@
+created: 20261012000000000
+modified: 20261012000000000
+tags: Concepts
+title: Confirmations
+type: text/vnd.tiddlywiki
+
+<<.from-version "5.5.0">> TiddlyWiki asks for confirmation before deleting a tiddler, discarding the changes to a draft, saving a renamed draft over an existing tiddler and editing a shadow tiddler. The ActionConfirmWidget asks in the same way.
+
+The question is part of the wiki itself. It does not use the confirmation box of the browser, and so it works wherever the wiki is displayed.
+
+!! How a question is asked
+
+# The action that needs confirmation stores its question in a temporary tiddler with the prefix `$:/temp/confirm/` and the tag <<tag "$:/tags/Confirmation">>, and then stops without making any changes
+# The template [[$:/core/ui/ConfirmTemplate]] displays the question as a modal dialog using the DialogWidget
+# The buttons of the dialog send the [[tm-confirm|WidgetMessage: tm-confirm]] message. The <kbd>Escape</kbd> key declines the question
+# If the question is confirmed then the action is repeated from the start. It finds its question answered and runs to completion
+
+A question tiddler has the following fields:
+
+|!Field |!Description |
+|text |The text of the question |
+|confirm-type |The kind of question: `delete`, `cancel`, `overwrite`, `edit-shadow` or `action` |
+|confirm-title |The title of the tiddler named in the question |
+
+!! Rules
+
+* Only one question waits for an answer at a time. Asking another question withdraws the earlier one
+* A confirmation is refused if the question is no longer waiting, or if the tiddlers that the action concerns have changed since the question was asked. An alert explains that nothing has been done. Changes to the fields listed in [[$:/config/ConfirmIgnoredFields]] are ignored
+* Questions are never saved or synchronised, in common with all tiddlers with the prefix `$:/temp/`
+* The words on the buttons are taken from the language tiddlers `$:/language/Confirmation/<confirm-type>/Yes` and `$:/language/Confirmation/<confirm-type>/No`, falling back to [[$:/language/Yes]] and [[$:/language/No]]
+
+!! Actions that follow a question
+
+An action does not wait for its question to be answered. Any actions that are invoked after the action that asks the question run immediately. Actions that should only run once the user has confirmed belong inside the ActionConfirmWidget.
+
+!! Scripts
+
+Without a user interface nobody can answer the question, and so the action is not performed. A script can find the waiting question with the filter `[all[tiddlers]tag[$:/tags/Confirmation]]` and answer it by dispatching the `tm-confirm` message.

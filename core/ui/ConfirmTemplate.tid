@@ -1,0 +1,29 @@
+title: $:/core/ui/ConfirmTemplate
+code-body: yes
+
+\whitespace trim
+\define confirm-answer(answer)
+<$action-sendmessage $message="tm-confirm" $param=<<currentTiddler>> answer="$answer$"/>
+\end
+\define confirm-word(word)
+\whitespace trim
+<$let caption={{{ [[$:/language/Confirmation/]addsuffix{!!confirm-type}addsuffix[/$word$]] }}}>
+<$transclude $tiddler={{{ [<caption>is[tiddler]] [<caption>is[shadow]] ~[[$:/language/$word$]] +[first[]] }}} $mode="inline"/>
+</$let>
+\end
+<div class="tc-confirm-backdrop"></div>
+<$dialog class="tc-confirm" role="alertdialog" aria-label={{$:/language/Confirmation/Caption}} aria-describedby="tc-confirm-message">
+<$keyboard key="escape" actions=<<confirm-answer no>>>
+<div class="tc-confirm-message" id="tc-confirm-message">
+<$text text={{!!text}}/>
+</div>
+<div class="tc-confirm-buttons">
+<$button class="tc-confirm-decline" actions=<<confirm-answer no>>>
+<<confirm-word No>>
+</$button>
+<$button class="tc-confirm-accept" actions=<<confirm-answer yes>>>
+<<confirm-word Yes>>
+</$button>
+</div>
+</$keyboard>
+</$dialog>

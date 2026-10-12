@@ -1,0 +1,36 @@
+caption: dialog
+created: 20261012000000000
+modified: 20261012000000000
+tags: Widgets
+title: DialogWidget
+type: text/vnd.tiddlywiki
+
+! Introduction
+
+<<.from-version "5.5.0">> The ''dialog'' widget displays its content as a modal dialog. While the dialog is displayed the rest of the page is inert: it cannot be clicked, focused or reached by assistive technology.
+
+The dialog is displayed for as long as the widget is rendered. It is usually placed within a ListWidget or RevealWidget that determines when it appears.
+
+! Content and Attributes
+
+The content of the `<$dialog>` widget is displayed within the dialog.
+
+|!Attribute |!Description |
+|class |An optional CSS class name to be assigned to the HTML element |
+|role |The ARIA role of the dialog: `dialog` (the default) or `alertdialog` |
+|aria-* |Any attributes with the prefix `aria-` are assigned to the HTML element. Use `aria-label` or `aria-labelledby` to name the dialog |
+
+The widget generates a `<div>` element with the attribute `aria-modal="true"`. When it is rendered:
+
+* The `inert` attribute is assigned to the siblings of the element and to the siblings of each of its ancestors
+* The focus moves to the first button, link or input control within the dialog
+
+When the widget is removed the `inert` attributes are removed again and the focus returns to where it was.
+
+The widget does not position its content. Styles are assigned through the `class` attribute.
+
+! Examples
+
+The core uses the dialog widget to display [[Confirmations]]:
+
+<$codeblock code={{$:/core/ui/ConfirmTemplate}}/>

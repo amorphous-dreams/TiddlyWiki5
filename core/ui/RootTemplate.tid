@@ -3,3 +3,4 @@ code-body: yes
 
 <$transclude tiddler={{{ [{$:/layout}has[text]] ~[[$:/core/ui/PageTemplate]] }}} mode="inline"/>
 
+{{$:/core/ui/Confirmations}}

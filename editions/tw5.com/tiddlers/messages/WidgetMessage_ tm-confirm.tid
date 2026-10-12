@@ -1,0 +1,14 @@
+caption: tm-confirm
+created: 20261012000000000
+modified: 20261012000000000
+tags: Messages
+title: WidgetMessage: tm-confirm
+type: text/vnd.tiddlywiki
+
+<<.from-version "5.5.0">> The `tm-confirm` message answers a [[confirmation question|Confirmations]]. It requires the following properties on the `event` object:
+
+|!Name |!Description |
+|param |Title of the question tiddler that is being answered |
+|paramObject |Hashmap of additional parameters:<br>''answer'': `yes` to confirm the action; any other value declines it |
+
+The confirm message is usually generated with the ButtonWidget by the buttons of the question, and is handled by the TiddlyWiki core.

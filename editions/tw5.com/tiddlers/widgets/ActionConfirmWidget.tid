@@ -17,6 +17,8 @@ The ''action-confirm'' widget is invisible. Any content within it is only proces
 |$message |Optional message displayed to the user when asking for confirmation.|
 |$prompt |Optional flag, set to "no" to disable the prompt for confirmation. Defaults to "yes" |
 
+<<.from-version "5.5.0">> The question is displayed within the wiki as described in [[Confirmations]]. The widget does not wait for the answer: any actions that follow it are invoked immediately, and the actions within it are invoked when the user confirms.
+
 ! Examples
 
 Here is an example of a button that asks the user for confirmation, before deleting the caption and tags fields of the current tiddler:

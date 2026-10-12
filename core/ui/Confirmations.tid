@@ -1,0 +1,4 @@
+title: $:/core/ui/Confirmations
+
+\whitespace trim
+<$list filter="[all[tiddlers]tag[$:/tags/Confirmation]!is[draft]]" template="$:/core/ui/ConfirmTemplate"/>
