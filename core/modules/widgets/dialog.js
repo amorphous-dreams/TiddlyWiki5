@@ -103,9 +103,10 @@ DialogWidget.prototype.refresh = function(changedTiddlers) {
 		sourcePrefix: "aria-",
 		destPrefix: "aria-"
 	});
+	var refreshed = this.refreshChildren(changedTiddlers);
 	// Mark any nodes that have been rendered since
 	this.updateInertNodes();
-	return this.refreshChildren(changedTiddlers);
+	return refreshed;
 };
 
 /*
@@ -116,7 +117,7 @@ DialogWidget.prototype.onDestroy = function() {
 		node.removeAttribute("inert");
 	});
 	this.inertNodes = [];
-	if(this.focusedNode && this.focusedNode.focus) {
+	if(this.focusedNode && this.focusedNode.focus && this.focusedNode.isConnected !== false) {
 		this.focusedNode.focus();
 	}
 	this.focusedNode = null;

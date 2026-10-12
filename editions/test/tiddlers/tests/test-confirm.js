@@ -198,6 +198,17 @@ describe("Confirmation tests", function() {
 		expect(getQuestion(info.wiki).fields.text).toBe("Really?");
 	});
 
+	it("should refuse a confirmation of a question that has been altered", function() {
+		var info = setupNavigator([{title: "HelloThere", text: "Some text"}]);
+		info.navigator.dispatchEvent({type: "tm-delete-tiddler", tiddlerTitle: "HelloThere"});
+		var question = getQuestion(info.wiki);
+		info.wiki.addTiddler(new $tw.Tiddler(question,{text: "Do you wish to keep the tiddler?"}));
+		answer(info,question.fields.title,"yes");
+		expect(info.wiki.tiddlerExists("HelloThere")).toBe(true);
+		expect(getQuestions(info.wiki)).toEqual([]);
+		expect(getAlertText(info.wiki)).toBe($tw.language.getString("ConfirmationWithdrawn"));
+	});
+
 	it("should refuse a confirmation of a question that was never asked", function() {
 		var info = setupNavigator([{title: "HelloThere", text: "Some text"}]);
 		info.wiki.addTiddler({title: "$:/temp/confirm/forged", tags: [QUESTION_TAG], text: "Forged"});
@@ -435,6 +446,23 @@ describe("Confirmation tests", function() {
 			info.refresh(changes);
 			expect(findByClass(info.container,"tc-confirm")).toBe(undefined);
 			expect(page.getAttribute("inert")).toBe(undefined);
+		});
+
+		it("should make inert the nodes that are rendered while the question is waiting", function() {
+			var info = setupDisplay();
+			ask(info,"delete");
+			var title = info.wiki.getTiddlersWithTag(QUESTION_TAG)[0],
+				late = $tw.fakeDocument.createElement("div"),
+				changes = {};
+			info.container.appendChild(late);
+			changes.Unrelated = {modified: true};
+			info.refresh(changes);
+			expect(late.getAttribute("inert")).toBe("");
+			$tw.utils.answerConfirmation(info.wiki,title,false);
+			changes = {};
+			changes[title] = {deleted: true};
+			info.refresh(changes);
+			expect(late.getAttribute("inert")).toBe(undefined);
 		});
 
 		it("should leave alone the nodes that were already inert", function() {

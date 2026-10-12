@@ -81,16 +81,17 @@ exports.confirm = function(message,options) {
 		event: options.event,
 		isAction: isAction,
 		triggeringWidget: options.triggeringWidget,
-		subjects: subjects
+		subjects: subjects,
+		tiddler: new $tw.Tiddler({
+			title: questionTitle,
+			tags: [QUESTION_TAG],
+			text: message,
+			"confirm-type": options.type,
+			"confirm-title": options.title
+		})
 	};
 	// Store the question for the user interface to display
-	wiki.addTiddler(new $tw.Tiddler({
-		title: questionTitle,
-		tags: [QUESTION_TAG],
-		text: message,
-		"confirm-type": options.type,
-		"confirm-title": options.title
-	}));
+	wiki.addTiddler(questions[questionTitle].tiddler);
 	return false;
 };
 
@@ -102,7 +103,10 @@ confirmed: true if the user confirms the action
 */
 exports.answerConfirmation = function(wiki,title,confirmed) {
 	var question = questions[title],
-		isWaiting = !!question && question.wiki === wiki && wiki.tiddlerExists(title);
+		ignoredFields = $tw.utils.parseStringArray(wiki.getTiddlerText(IGNORED_FIELDS_TITLE,"")) || [],
+		tiddler = wiki.getTiddler(title),
+		// The question must still read as it was asked
+		isWaiting = !!question && question.wiki === wiki && !!tiddler && tiddler.isEqual(question.tiddler,ignoredFields);
 	// Withdraw the question
 	if(question && question.wiki === wiki) {
 		delete questions[title];
@@ -117,8 +121,7 @@ exports.answerConfirmation = function(wiki,title,confirmed) {
 		return false;
 	}
 	// Refuse if the tiddlers have changed since the question was asked
-	var ignoredFields = $tw.utils.parseStringArray(wiki.getTiddlerText(IGNORED_FIELDS_TITLE,"")) || [],
-		isChanged = false;
+	var isChanged = false;
 	$tw.utils.each(question.subjects,function(tiddler,subjectTitle) {
 		var currentTiddler = wiki.getTiddler(subjectTitle);
 		if(tiddler ? !(currentTiddler && currentTiddler.isEqual(tiddler,ignoredFields)) : !!currentTiddler) {
